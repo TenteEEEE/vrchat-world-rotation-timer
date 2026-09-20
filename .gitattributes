@@ -1,0 +1,2 @@
+# Keep Unity YAML, meta files, and binary asset handling byte-stable across exports.
+* -text

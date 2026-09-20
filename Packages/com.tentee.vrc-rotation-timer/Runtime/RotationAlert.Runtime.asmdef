@@ -1,0 +1,20 @@
+{
+    "name": "RotationAlert.Runtime",
+    "rootNamespace": "RotationAlert",
+    "references": [
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "UdonSharp.Runtime",
+        "VRC.SDKBase",
+        "VRC.Udon"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

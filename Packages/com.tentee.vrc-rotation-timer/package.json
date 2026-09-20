@@ -1,0 +1,23 @@
+{
+  "name": "com.tentee.vrc-rotation-timer",
+  "displayName": "Rotation Alert",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "author": {
+    "name": "TenteEEEE",
+    "url": "https://github.com/TenteEEEE"
+  },
+  "description": "A synchronized rotation-event timer and alert panel for VRChat worlds.",
+  "license": "MIT",
+  "keywords": [
+    "vrchat",
+    "worlds",
+    "udonsharp",
+    "rotation",
+    "timer",
+    "alert"
+  ],
+  "vpmDependencies": {
+    "com.vrchat.worlds": "^3.8.0"
+  }
+}

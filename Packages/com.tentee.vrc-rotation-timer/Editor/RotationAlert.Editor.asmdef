@@ -1,0 +1,26 @@
+{
+    "name": "RotationAlert.Editor",
+    "rootNamespace": "RotationAlertEditor",
+    "references": [
+        "RotationAlert.Runtime",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "UdonSharp.Editor",
+        "VRC.Udon.Editor",
+        "UdonSharp.Runtime",
+        "VRC.SDK3",
+        "VRC.SDKBase",
+        "VRC.Udon"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
