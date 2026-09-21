@@ -12,6 +12,7 @@ namespace RotationAlert
         // --- synced fields ---
         [UdonSynced] public bool running;
         [UdonSynced] public double scheduleStart;
+        [UdonSynced] public bool paused;
         [UdonSynced] public double pausedAt;
         [UdonSynced] public int rotationSec;
         [UdonSynced] public int intervalSec;
@@ -107,7 +108,7 @@ namespace RotationAlert
         public double EffectiveElapsed()
         {
             if (!running) return 0;
-            double now = pausedAt > 0 ? pausedAt : Networking.GetServerTimeInSeconds();
+            double now = paused ? pausedAt : Networking.GetServerTimeInSeconds();
             return now - scheduleStart;
         }
 
@@ -123,7 +124,7 @@ namespace RotationAlert
 
         public bool IsPaused()
         {
-            return running && pausedAt > 0;
+            return running && paused;
         }
 
         public int GetRotationIndex()
@@ -176,11 +177,12 @@ namespace RotationAlert
         public void OpStart()
         {
             double now = Networking.GetServerTimeInSeconds();
-            double elapsed = running ? (pausedAt > 0 ? pausedAt : now) - scheduleStart : 0;
+            double elapsed = running ? (paused ? pausedAt : now) - scheduleStart : 0;
             int phase = PhaseFor(elapsed);
             if (running && phase != 3) return;
             TakeOwnership();
             scheduleStart = now;
+            paused = false;
             pausedAt = 0;
             running = true;
             revision++;
@@ -190,18 +192,20 @@ namespace RotationAlert
         public void OpPauseResume()
         {
             double now = Networking.GetServerTimeInSeconds();
-            double anchor = pausedAt > 0 ? pausedAt : now;
+            double anchor = paused ? pausedAt : now;
             double elapsed = running ? anchor - scheduleStart : 0;
             int phase = PhaseFor(elapsed);
             if (!running || phase == 3) return;
             TakeOwnership();
-            if (pausedAt <= 0)
+            if (!paused)
             {
+                paused = true;
                 pausedAt = now;
             }
             else
             {
                 scheduleStart += now - pausedAt;
+                paused = false;
                 pausedAt = 0;
             }
             revision++;
@@ -211,7 +215,7 @@ namespace RotationAlert
         public void OpSkip()
         {
             double now = Networking.GetServerTimeInSeconds();
-            double anchor = pausedAt > 0 ? pausedAt : now;
+            double anchor = paused ? pausedAt : now;
             double elapsed = running ? anchor - scheduleStart : 0;
             int phase = PhaseFor(elapsed);
             if (!running || phase == 3) return;
@@ -226,7 +230,7 @@ namespace RotationAlert
         public void OpPlusMinute()
         {
             double now = Networking.GetServerTimeInSeconds();
-            double anchor = pausedAt > 0 ? pausedAt : now;
+            double anchor = paused ? pausedAt : now;
             double elapsed = running ? anchor - scheduleStart : 0;
             int phase = PhaseFor(elapsed);
             if (!running || phase == 3) return;
@@ -244,7 +248,7 @@ namespace RotationAlert
         public void OpMinusMinute()
         {
             double now = Networking.GetServerTimeInSeconds();
-            double anchor = pausedAt > 0 ? pausedAt : now;
+            double anchor = paused ? pausedAt : now;
             double elapsed = running ? anchor - scheduleStart : 0;
             int phase = PhaseFor(elapsed);
             if (!running || phase == 3) return;
@@ -264,6 +268,7 @@ namespace RotationAlert
             {
                 TakeOwnership();
                 running = false;
+                paused = false;
                 pausedAt = 0;
                 resetArmedUntil = -1f;
                 revision++;
