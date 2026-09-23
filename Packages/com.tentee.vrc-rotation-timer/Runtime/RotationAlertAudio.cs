@@ -11,11 +11,11 @@ namespace RotationAlert
         public RotationAlertCore core;
         public AudioSource source;
 
-        // Index order matches §2: 0 RotationStart, 1 Warning, 2 RotationEnd.
-        // Countdown and AllFinished remain listener events, but intentionally have no sound.
-        public AudioClip[] cueClips = new AudioClip[3];
-        public float[] cueVolumes = { 1f, 1f, 1f };
-        public int[] cueRepeats = { 1, 1, 1 };
+        // Index order matches §3: 0 RotationStart, 1 Warning, 2 RotationEnd,
+        // 3 Countdown, 4 AllFinished. Countdown is intentionally silent (null clip).
+        public AudioClip[] cueClips = new AudioClip[5];
+        public float[] cueVolumes = { 1f, 1f, 1f, 0f, 1f };
+        public int[] cueRepeats = { 1, 1, 1, 1, 1 };
         public float repeatGap = 0.6f;
         public bool muted;
 
@@ -86,9 +86,9 @@ namespace RotationAlert
             {
                 int id = scratchIds[i];
                 core.NotifyListeners(EventNameForId(id));
-                // Countdown/AllFinished are still dispatched to listeners, but do not
-                // suppress an audible cue when they share the same frame.
-                if (id < 3 && id > audibleId) audibleId = id;
+                // Countdown is listener-only. Audible priority is AllFinished > RotationEnd
+                // > Warning > RotationStart; RotationEnd is never emitted for the last rotation.
+                if (id != 3 && id > audibleId) audibleId = id;
                 if (scratchTimes[i] > lastFiredCueTime) lastFiredCueTime = scratchTimes[i];
             }
 
@@ -170,7 +170,7 @@ namespace RotationAlert
         private void PlayCue(int id)
         {
             if (muted) return;
-            if (cueClips == null || id < 0 || id >= 3 || id >= cueClips.Length) return;
+            if (cueClips == null || id < 0 || id >= cueClips.Length) return;
             AudioClip clip = cueClips[id];
             if (clip == null || source == null) return;
 

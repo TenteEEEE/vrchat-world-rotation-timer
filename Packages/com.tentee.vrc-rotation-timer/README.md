@@ -29,11 +29,13 @@ embedded package or the upstream `Assets/RotationAlert` authoring copy.
 ## Features
 
 - Rotation, interval, count, and warning-minute controls.
-- Start, pause/resume, skip, extend, shorten, and two-step reset controls.
-- Local-only audio with per-cue clips, volume, repeat count, and mute control.
+- Start, pause/resume, extend, shorten, and two-step confirmation for skip and reset.
+- Local-only audio with per-cue clips, volume, repeat count, and mute control. A dedicated cue
+  plays when the whole schedule finishes.
 - Listener events: `OnRotationStart`, `OnRotationWarning`, `OnRotationEnd`,
   `OnIntervalCountdown`, `OnAllFinished`, and `OnScheduleChanged`.
 - Optional shader bridge values `_UdonRotAlertState` and `_UdonRotAlertFlags`.
+- The control panel only responds to input once the local player is within about 1 m of it.
 
 See [`docs/SPEC.md`](docs/SPEC.md) for the synchronization model and public component contract.
 

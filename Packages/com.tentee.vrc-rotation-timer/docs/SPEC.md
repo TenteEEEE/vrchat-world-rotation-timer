@@ -36,21 +36,22 @@ cycle = rotationSec + intervalSec
 
 ## 3. 合図と外部イベント
 
-音声キューは次の 3 種類です。`r` は 0 始まりのローテーション番号です。
+音声キューは次の 4 種類です。`r` は 0 始まりのローテーション番号です。
 
 | 種類 | 発火時刻 | 既定の音声 |
 | --- | --- | --- |
 | RotationStart | `r * cycle` | `rotation_start.wav` |
 | Warning | `r * cycle + rotationSec - warnSec` | `warning.wav` |
 | RotationEnd | `r * cycle + rotationSec`（最後を除く） | `rotation_end.wav` |
+| AllFinished | `(rotationCount - 1) * cycle + rotationSec` | `rotation_end.wav` |
 
 Warning は `warnSec` が 0 より大きく、ローテーション時間より短い場合だけ発火します。
 
-開始前カウントと全体完了は、外部連携用のイベントとして通知しますが、音声キューには含めません。各音声キューには、クリップ、音量、1〜3 回の繰り返し回数、繰り返し間隔を設定できます。初期の繰り返し間隔は 0.6 秒です。
+開始前カウントは、外部連携用のイベントとしてだけ通知します。配列は id 0〜4 に合わせて 5 要素で、id 3（Countdown）は意図的に null クリップのまま無音にします。各音声キューには、クリップ、音量、1〜3 回の繰り返し回数、繰り返し間隔を設定できます。初期の繰り返し間隔は 0.6 秒です。
 
 音は `AudioSource.PlayOneShot` で各クライアントだけが再生します。ネットワークイベントで音を鳴らしてはいけません。途中参加者に過去の合図をまとめて鳴らすこともしません。初回検出時は直近 2 秒だけを拾い、それより前のキューは通過済みとして扱います。
 
-同じフレームに複数の音声キューが重なった場合、外部イベントはすべて通知します。音声はそのフレームで最も優先度の高いキュー（id 0〜2 のうち最大のもの）だけを再生します。
+同じフレームに複数の音声キューが重なった場合、外部イベントはすべて通知します。音声は AllFinished > RotationEnd > Warning > RotationStart の順で最も優先度の高いキューだけを再生します。Countdown は無音です。RotationEnd は最終ローテーションでは発火しないため、AllFinished と衝突しません。
 
 外部連携先 `listeners` には、次のイベントを送ります。null の要素は無視します。
 
@@ -111,7 +112,7 @@ public int Cycle();
 | --- | --- | --- |
 | `OpStart` | 待機中または完了後 | 現在時刻から新しいスケジュールを開始 |
 | `OpPauseResume` | 実行中 | 一時停止、または停止位置から再開 |
-| `OpSkip` | 実行中 | 現在のフェーズを終了 |
+| `OpSkip` | 実行中 | 4 秒以内の 2 回押下で現在のフェーズを終了 |
 | `OpPlusMinute` | 実行中 | 現在のフェーズの残りを 60 秒延長 |
 | `OpMinusMinute` | 実行中 | 現在のフェーズの残りを 60 秒短縮 |
 | `OpResetRequest` | 常時 | 4 秒以内の 2 回押下で待機状態へ戻す |
@@ -139,6 +140,8 @@ public int Cycle();
 色は、待機中がグレー、ローテーション中がティール、予告中がアンバー、残り 60 秒以内が赤、インターバルがブルー、完了がグリーンです。一時停止中はグレーにし、残り時間を点滅させます。
 
 操作パネルには、開始、一時停止・再開、次へ、±1 分、リセット、ミュート、各設定の ± ボタンを置きます。補助表示板では操作系を省略できます。文字列の更新は 0.1 秒ごとに間引き、色・進捗・点滅は毎フレーム更新します。
+次へボタンは 2 段階確認です。1 回目で 4 秒間だけ操作待ちになり、ラベルを「次へ」から「本当に？」へ変えます。2 回目でスキップし、4 秒を過ぎると何もせずに待ちを解除します。
+操作パネルの `RotationAlertDisplay` は `uiRaycaster` と `interactRange` を持ちます。ローカルプレイヤーと Canvas の距離を 0.25 秒ごとに測り、`interactRange` 以下で有効化し、`interactRange + 0.5` を超えると無効化します。ヒステリシスは境界での点滅を防ぐためです。ローカルプレイヤーが null のエディター再生ではレイキャスターを有効のままにします。補助表示板では `uiRaycaster` は null です。
 
 ## 6. 音声
 
@@ -149,11 +152,15 @@ public int Cycle();
 ```text
 AudioSource.spatialBlend = 0
 AudioSource.playOnAwake = false
-AudioSource.volume = 0.6
+AudioSource.volume = 1.0
 VRCSpatialAudioSource.EnableSpatialization = false
 ```
 
 ミュート状態はローカルだけに保持します。UI のクリック音も `RotationAlertAudio` から再生します。
+
+### 音声キュー配列
+
+`RotationAlertAudio` の `cueClips` / `cueVolumes` / `cueRepeats` は id 0〜4 に合わせた 5 要素です。id 3（Countdown）だけは null クリップで無音を維持します。id 4（AllFinished）は id 2 と同じ `rotation_end.wav` を使います。
 
 ## 7. Prefab と installer
 
@@ -163,16 +170,20 @@ installer は次のメニューを提供します。
 - `Tools/TenteEEEE/Rotation Alert/Install Panel into Current Scene`
 - `Tools/TenteEEEE/Rotation Alert/Export UnityPackage`
 
-`Build Prefabs` は、UdonSharp の program asset、フォント、UI 階層、Prefab を順に用意します。何度実行しても同じ場所に上書きできるようにします。`Install Panel into Current Scene` はパネルを現在のシーンに配置します。`Export UnityPackage` はパッケージに含まれる Rotation Alert のアセット全体を書き出します。
+`Build Prefabs` は、UdonSharp の program asset、フォント、UI 階層、Prefab を順に用意します。何度実行しても同じ場所に上書きできるようにします。`Install Panel into Current Scene` はパネルを現在のシーンに配置します。`Export UnityPackage` は `Assets/RotationAlert` 全体を書き出します。
 
 日本語フォントは同梱の Noto Sans JP から TMP フォントアセットを生成します。program asset とフォントがまだ無い場合は installer が生成します。TMP Essential Resources が無い場合は、必要な導入手順をエラーとして表示します。
 
 サブ表示板の `RotationAlertDisplay.core` は空のまま出荷します。ワールドに置いたあと、同じシーンの `RotationAlertCore` を参照させてください。
 
-## 8. パッケージの構成
+### 描画状態
+
+installer は `Generated/RotationAlert UI Material.mat` と `Generated/RotationAlert TMP Material.mat` を生成し、再実行時にも同じパスを再利用します。どちらも render queue 3000 と `unity_GUIZTestMode = CompareFunction.LessEqual` を明示します。Canvas の sorting order は 0 です。これは `unity_GUIZTestMode` の継承値や sorting order に依存せず、通常の半透明ジオメトリと同じ奥行きテストで描くためです。BoxCollider は描画ではなく VRCUiShape の入力判定用です。
+
+## 8. ファイル構成
 
 ```text
-Packages/com.tentee.vrc-rotation-timer/
+Assets/RotationAlert/
   README.md
   docs/SPEC.md
   Runtime/RotationAlertCore.cs
@@ -189,6 +200,9 @@ Packages/com.tentee.vrc-rotation-timer/
   Fonts/NotoSansJP-Regular.otf
   Fonts/OFL-1.1.txt
   Fonts/RotationAlert JP SDF.asset
+  Generated/rotation_alert_fill.png
+  Generated/RotationAlert UI Material.mat
+  Generated/RotationAlert TMP Material.mat
   Prefabs/RotationAlert Panel.prefab
   Prefabs/RotationAlert Display.prefab
 ```
