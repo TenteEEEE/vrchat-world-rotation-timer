@@ -11,7 +11,14 @@ UnityPackage from that directory.
 1. Open this repository as a Unity 2022.3 project.
 2. Install the VRChat Worlds SDK and TextMeshPro Essential Resources.
 3. Work from `Packages/com.tentee.vrc-rotation-timer/`.
-4. Set the GitHub repository variable `PACKAGE_NAME` to
-   `com.tentee.vrc-rotation-timer` before running the release workflow.
+
+## Releasing
+
+1. Bump `package.json`, then merge the change.
+2. Publish a GitHub release with the tag `<version>`; the workflow attaches the package files automatically.
+3. Or run **Build Release** manually from `main` (or from a version tag to backfill an older release).
+4. Set `dry_run` to build and verify the files without publishing.
+5. `VPM_REPOS_TOKEN` is optional and lets the workflow trigger the VPM listing rebuild.
+6. Without it, run **Build Repo Listing** manually in the `TenteEEEE/vpm-repos` Actions tab.
 
 The package's user documentation is in its `README.md` and `README.ja.md`.
