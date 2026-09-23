@@ -30,6 +30,7 @@ namespace RotationAlert
 
         // --- local reset-arm state ---
         private float resetArmedUntil = -1f;
+        private float skipArmedUntil = -1f;
 
         private void Start()
         {
@@ -158,6 +159,11 @@ namespace RotationAlert
             return resetArmedUntil > 0f && Time.time <= resetArmedUntil;
         }
 
+        public bool IsSkipArmed()
+        {
+            return skipArmedUntil > 0f && Time.time <= skipArmedUntil;
+        }
+
         // ---------------------------------------------------------------
         // Common helper for "shift remaining seconds" operations.
         // scheduleStart = anchor - (elapsedAtPhaseStart + (phaseLength - targetRemaining))
@@ -219,10 +225,16 @@ namespace RotationAlert
             double elapsed = running ? anchor - scheduleStart : 0;
             int phase = PhaseFor(elapsed);
             if (!running || phase == 3) return;
+            if (!IsSkipArmed())
+            {
+                skipArmedUntil = Time.time + 4f;
+                return;
+            }
             TakeOwnership();
             double phaseStartElapsed = PhaseStartElapsedFor(elapsed, phase);
             float phaseLength = PhaseLengthFor(phase);
             ApplyShift(anchor, phaseStartElapsed, phaseLength, 0);
+            skipArmedUntil = -1f;
             revision++;
             RequestSerialization();
         }

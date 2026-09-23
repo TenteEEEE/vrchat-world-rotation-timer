@@ -9,6 +9,7 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using VRC.SDK3.Components;
@@ -52,6 +53,8 @@ namespace RotationAlertEditor
         private static string AudioDir { get { return RootDir + "Audio/"; } }
         private static string GeneratedDir { get { return RootDir + "Generated/"; } }
         private static string FillSpritePath { get { return GeneratedDir + "rotation_alert_fill.png"; } }
+        private static string UiMaterialPath { get { return GeneratedDir + "RotationAlert UI Material.mat"; } }
+        private static string TmpMaterialPath { get { return GeneratedDir + "RotationAlert TMP Material.mat"; } }
 
         private static string PrefabDir { get { return RootDir + "Prefabs/"; } }
         private static string PanelPrefabPath { get { return PrefabDir + "RotationAlert Panel.prefab"; } }
@@ -91,6 +94,7 @@ namespace RotationAlertEditor
         private const string LabelPause = "一時停止";
         private const string LabelResume = "再開";
         private const string LabelSkip = "次へ";
+        private const string LabelSkipArmed = "本当に？";
         private const string LabelPlusMinute = "+1分";
         private const string LabelMinusMinute = "-1分";
         private const string LabelReset = "リセット";
@@ -122,6 +126,7 @@ namespace RotationAlertEditor
         private static readonly string[] AllLabelStrings =
         {
             LabelStart, LabelPause, LabelResume, LabelSkip, LabelPlusMinute, LabelMinusMinute,
+            LabelSkipArmed,
             LabelReset, LabelResetArmed, LabelMuteOn, LabelMuteOff, LabelSettingsCaption,
             LabelSettingRotation, LabelSettingInterval, LabelSettingCount, LabelSettingWarn,
             LabelMinusGlyph, LabelPlusGlyph,
@@ -150,8 +155,10 @@ namespace RotationAlertEditor
             EnsureProgramAssets();
             TMP_FontAsset font = EnsureFontAsset();
             EnsureDirectories();
-            BuildPanelPrefab(font);
-            BuildDisplayPrefab(font);
+            Material uiMaterial = EnsureUiMaterial(UiMaterialPath, "RotationAlert UI Material");
+            Material tmpMaterial = EnsureTmpMaterial(font, TmpMaterialPath, "RotationAlert TMP Material");
+            BuildPanelPrefab(font, uiMaterial, tmpMaterial);
+            BuildDisplayPrefab(font, uiMaterial, tmpMaterial);
             AssetDatabase.SaveAssets();
             Debug.Log("[RotationAlert] Build Prefabs complete.");
         }
@@ -377,6 +384,39 @@ namespace RotationAlertEditor
             return AssetDatabase.LoadAssetAtPath<Sprite>(FillSpritePath);
         }
 
+        private static Material EnsureUiMaterial(string path, string name)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                Shader shader = Shader.Find("UI/Default");
+                if (shader == null) throw new System.InvalidOperationException("[RotationAlert] Missing built-in UI/Default shader.");
+                material = new Material(shader);
+                material.name = name;
+                AssetDatabase.CreateAsset(material, path);
+            }
+            material.renderQueue = 3000;
+            material.SetInt("unity_GUIZTestMode", (int)CompareFunction.LessEqual);
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static Material EnsureTmpMaterial(TMP_FontAsset font, string path, string name)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                if (font == null || font.material == null) throw new System.InvalidOperationException("[RotationAlert] Missing TMP font material source.");
+                material = new Material(font.material);
+                material.name = name;
+                AssetDatabase.CreateAsset(material, path);
+            }
+            material.renderQueue = 3000;
+            material.SetInt("unity_GUIZTestMode", (int)CompareFunction.LessEqual);
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static string ProjectAbsolutePath(string assetPath)
         {
             string projectRoot = Path.GetDirectoryName(Application.dataPath);
@@ -401,13 +441,20 @@ namespace RotationAlertEditor
             "rotation_start.wav",
             "warning.wav",
             "rotation_end.wav",
+            null,
+            "rotation_end.wav",
         };
 
         private static AudioClip[] LoadCueClips()
         {
-            AudioClip[] clips = new AudioClip[3];
+            AudioClip[] clips = new AudioClip[5];
             for (int i = 0; i < CueClipNames.Length; i++)
             {
+                if (CueClipNames[i] == null)
+                {
+                    clips[i] = null;
+                    continue;
+                }
                 string path = AudioDir + CueClipNames[i];
                 AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
                 if (clip == null)
@@ -429,7 +476,7 @@ namespace RotationAlertEditor
         // ------------------------------------------------------------------
         // Panel prefab (SPEC §3, §5, §6)
         // ------------------------------------------------------------------
-        private static void BuildPanelPrefab(TMP_FontAsset font)
+        private static void BuildPanelPrefab(TMP_FontAsset font, Material uiMaterial, Material tmpMaterial)
         {
             DestroyLeftoverBuildRoot(PanelBuildRootName);
             Sprite fillSprite = EnsureFillSprite();
@@ -439,7 +486,7 @@ namespace RotationAlertEditor
             AudioSource audioSource = root.AddComponent<AudioSource>();
             audioSource.spatialBlend = 0f;
             audioSource.playOnAwake = false;
-            audioSource.volume = 0.6f;
+            audioSource.volume = 1f;
             audioSource.loop = false;
             VRCSpatialAudioSource spatial = root.AddComponent<VRCSpatialAudioSource>();
             spatial.EnableSpatialization = false;
@@ -465,8 +512,8 @@ namespace RotationAlertEditor
             audioProxy.core = coreProxy;
             audioProxy.source = audioSource;
             audioProxy.cueClips = LoadCueClips();
-            audioProxy.cueVolumes = new float[] { 1f, 1f, 1f };
-            audioProxy.cueRepeats = new int[] { 1, 1, 1 };
+            audioProxy.cueVolumes = new float[] { 1f, 1f, 1f, 0f, 1f };
+            audioProxy.cueRepeats = new int[] { 1, 1, 1, 1, 1 };
             audioProxy.repeatGap = 0.6f;
             audioProxy.muted = false;
             audioProxy.uiClick = LoadUiClickClip();
@@ -535,6 +582,7 @@ namespace RotationAlertEditor
                 new Vector2(100f, 56f), new Vector2(-62f, -85f), TokenSurface, font, 20f);
             AddOpListener(skipButton, coreBacking, "OpSkip");
             AddClickListener(skipButton, audioBacking);
+            TMP_Text skipLabel = skipButton.GetComponentInChildren<TextMeshProUGUI>();
 
             Button plusMinuteButton = CreateButtonVisual(canvas.transform, "Plus Minute Button", LabelPlusMinute,
                 new Vector2(100f, 56f), new Vector2(52f, -85f), TokenSurface, font, 20f);
@@ -579,13 +627,22 @@ namespace RotationAlertEditor
             displayProxy.subText = (TextMeshProUGUI)subText;
             displayProxy.settingsText = (TextMeshProUGUI)settingsText;
             displayProxy.pauseButtonLabel = (TextMeshProUGUI)pauseLabel;
+            displayProxy.skipButtonLabel = (TextMeshProUGUI)skipLabel;
             displayProxy.resetButtonLabel = (TextMeshProUGUI)resetLabel;
             displayProxy.muteButtonLabel = (TextMeshProUGUI)muteLabel;
+            displayProxy.uiRaycaster = canvas.GetComponent<GraphicRaycaster>();
+            displayProxy.interactRange = 1f;
             displayProxy.progressFill = progressFill;
             displayProxy.accentImages = new Image[] { accentStrip, progressFill };
             displayProxy.startButton = startButton;
             displayProxy.runControlButtons = new Button[] { pauseButton, skipButton, plusMinuteButton, minusMinuteButton };
             displayProxy.settingButtons = settingButtons;
+
+            Image[] images = root.GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < images.Length; i++) images[i].material = uiMaterial;
+
+            TextMeshProUGUI[] texts = root.GetComponentsInChildren<TextMeshProUGUI>(true);
+            for (int i = 0; i < texts.Length; i++) texts[i].fontSharedMaterial = tmpMaterial;
 
             UdonSharpEditorUtility.CopyProxyToUdon(coreProxy);
             UdonSharpEditorUtility.CopyProxyToUdon(audioProxy);
@@ -622,7 +679,7 @@ namespace RotationAlertEditor
         // ------------------------------------------------------------------
         // Display-only prefab (SPEC §6: 720x300, accent + phase + time + progress + sub only)
         // ------------------------------------------------------------------
-        private static void BuildDisplayPrefab(TMP_FontAsset font)
+        private static void BuildDisplayPrefab(TMP_FontAsset font, Material uiMaterial, Material tmpMaterial)
         {
             DestroyLeftoverBuildRoot(DisplayBuildRootName);
             Sprite fillSprite = EnsureFillSprite();
@@ -666,13 +723,21 @@ namespace RotationAlertEditor
             displayProxy.subText = (TextMeshProUGUI)subText;
             displayProxy.settingsText = null;
             displayProxy.pauseButtonLabel = null;
+            displayProxy.skipButtonLabel = null;
             displayProxy.resetButtonLabel = null;
             displayProxy.muteButtonLabel = null;
+            displayProxy.uiRaycaster = null;
             displayProxy.progressFill = progressFill;
             displayProxy.accentImages = new Image[] { accentStrip, progressFill };
             displayProxy.startButton = null;
             displayProxy.runControlButtons = new Button[0];
             displayProxy.settingButtons = new Button[0];
+
+            Image[] images = root.GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < images.Length; i++) images[i].material = uiMaterial;
+
+            TextMeshProUGUI[] texts = root.GetComponentsInChildren<TextMeshProUGUI>(true);
+            for (int i = 0; i < texts.Length; i++) texts[i].fontSharedMaterial = tmpMaterial;
 
             UdonSharpEditorUtility.CopyProxyToUdon(displayProxy);
 

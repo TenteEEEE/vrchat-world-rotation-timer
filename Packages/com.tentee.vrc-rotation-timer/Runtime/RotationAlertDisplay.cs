@@ -2,6 +2,7 @@ using TMPro;
 using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
+using VRC.SDKBase;
 
 namespace RotationAlert
 {
@@ -17,6 +18,7 @@ namespace RotationAlert
         public TextMeshProUGUI subText;
         public TextMeshProUGUI settingsText;
         public TextMeshProUGUI pauseButtonLabel;
+        public TextMeshProUGUI skipButtonLabel;
         public TextMeshProUGUI resetButtonLabel;
         public TextMeshProUGUI muteButtonLabel;
 
@@ -26,6 +28,9 @@ namespace RotationAlert
         public Button startButton;
         public Button[] runControlButtons;
         public Button[] settingButtons;
+
+        public GraphicRaycaster uiRaycaster;
+        public float interactRange = 1f;
 
         // Colors are built on demand instead of via field initializers so the
         // UdonSharp compiler never has to evaluate a constructor at field-init time.
@@ -38,17 +43,23 @@ namespace RotationAlert
 
         private float textAccum;
         private const float TextInterval = 0.1f;
+        private float rangeAccum;
+        private const float RangeInterval = 0.25f;
+        private const float RangeHysteresis = 0.5f;
 
         private string cachedPhaseText = "";
         private string cachedTimeText = "";
         private string cachedSubText = "";
         private string cachedSettingsText = "";
         private string cachedPauseLabel = "";
+        private string cachedSkipLabel = "";
         private string cachedResetLabel = "";
         private string cachedMuteLabel = "";
 
         private void Update()
         {
+            UpdateInteractionRange();
+
             if (core == null) return;
 
             textAccum += Time.deltaTime;
@@ -67,6 +78,7 @@ namespace RotationAlert
                 UpdateSubText(phase);
                 UpdateSettingsText();
                 UpdatePauseLabel(paused);
+                UpdateSkipLabel();
                 UpdateResetLabel();
                 UpdateMuteLabel();
             }
@@ -158,9 +170,17 @@ namespace RotationAlert
             if (pauseButtonLabel != null) pauseButtonLabel.text = text;
         }
 
+        private void UpdateSkipLabel()
+        {
+            string text = core.IsSkipArmed() ? "本当に？" : "次へ";
+            if (text == cachedSkipLabel) return;
+            cachedSkipLabel = text;
+            if (skipButtonLabel != null) skipButtonLabel.text = text;
+        }
+
         private void UpdateResetLabel()
         {
-            string text = core.IsResetArmed() ? "本当に初期化？" : "リセット";
+            string text = core.IsResetArmed() ? "本当に？" : "リセット";
             if (text == cachedResetLabel) return;
             cachedResetLabel = text;
             if (resetButtonLabel != null) resetButtonLabel.text = text;
@@ -173,6 +193,32 @@ namespace RotationAlert
             if (text == cachedMuteLabel) return;
             cachedMuteLabel = text;
             if (muteButtonLabel != null) muteButtonLabel.text = text;
+        }
+
+        private void UpdateInteractionRange()
+        {
+            if (uiRaycaster == null) return;
+
+            rangeAccum += Time.deltaTime;
+            if (rangeAccum < RangeInterval) return;
+            rangeAccum = 0f;
+
+            VRCPlayerApi localPlayer = Networking.LocalPlayer;
+            if (localPlayer == null)
+            {
+                uiRaycaster.enabled = true;
+                return;
+            }
+
+            float distance = Vector3.Distance(localPlayer.GetPosition(), uiRaycaster.transform.position);
+            if (uiRaycaster.enabled)
+            {
+                if (distance > interactRange + RangeHysteresis) uiRaycaster.enabled = false;
+            }
+            else if (distance <= interactRange)
+            {
+                uiRaycaster.enabled = true;
+            }
         }
 
         private void UpdateColors(int phase, bool paused, float remaining)

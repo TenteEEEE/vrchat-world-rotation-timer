@@ -26,7 +26,9 @@ namespace RotationAlertEditor
             rect.sizeDelta = size;
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
-            canvas.sortingOrder = 20;
+            // Depth is explicit in the generated materials, so sorting order no longer forces
+            // this canvas above other transparent world geometry.
+            canvas.sortingOrder = 0;
             canvasObject.AddComponent<VRCUiShape>();
             BoxCollider collider = canvasObject.AddComponent<BoxCollider>();
             collider.size = new Vector3(size.x, size.y, 6f);

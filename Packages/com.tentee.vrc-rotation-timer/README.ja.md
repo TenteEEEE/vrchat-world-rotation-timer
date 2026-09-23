@@ -29,11 +29,12 @@ Rotation Alert は、交流会・展示回遊・グループトークなど、�
 ## 機能
 
 - ローテーション、休憩、回数、予告分数の設定。
-- 開始、一時停止／再開、次へ、延長、短縮、2 段階確認リセット。
-- 合図ごとの音源・音量・リピート回数と、ローカルミュート。
+- 開始、一時停止／再開、延長、短縮、2 段階確認の次へ／リセット。
+- 合図ごとの音源・音量・リピート回数と、ローカルミュート。全ローテ終了時にも専用の音声キューが鳴ります。
 - `OnRotationStart`、`OnRotationWarning`、`OnRotationEnd`、`OnIntervalCountdown`、
   `OnAllFinished`、`OnScheduleChanged` の listener イベント。
 - 任意で利用できる `_UdonRotAlertState` / `_UdonRotAlertFlags` シェーダー連携。
+- 操作パネルはローカルプレイヤーが約 1 m 以内に近づいたときだけ操作できます。
 
 同期モデルと公開コンポーネントの仕様は [`docs/SPEC.md`](docs/SPEC.md) を参照してください。
 
